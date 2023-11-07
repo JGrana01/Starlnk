@@ -55,7 +55,7 @@ Keep in mind, this is the Satellite to dish rates and NOT the actual download or
 
 An example of one of the screens (Show Present Status)
 
-![image](https://github.com/JGrana01/Starlnk/assets/11652784/37aa1c04-61ac-4649-8603-b40b36cbb2c7)
+![image](https://github.com/JGrana01/Starlnk/assets/11652784/45e267ae-3b36-401f-8106-bc8a5301b774)
 
 ## Script Mode
 
