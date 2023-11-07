@@ -22,6 +22,15 @@ Using your preferred SSH client/terminal, copy and paste the following command, 
 ```sh
 /usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.sh" -o "/jffs/scripts/starlnk" && chmod 0755 /jffs/scripts/starlnk && /jffs/scripts/starlnk install
 ```
+Install will firt check for the correct router architecture (aarch64 - needed for grpcurl) then Entware being installed. If either are a problem, starlnk will let you know and not install.
+
+If both are met, it will create a directory in /jffs/addons (starlnk), create a config file there and setup a link in /opt/bin (starlnk) to /jffs/scripts/starlnk.sh
+
+## Uninstallation
+To remove starlnk and it's addon directory as well as grpcurl, run either in Menu mode, "U" uninstall or from the command line:
+
+$ starlnk uninstall
+
 ## Usage
 starlnk runs either a menu based system using dialog without any command line
 arguments or in script mode where it will return results of a command or do an
@@ -39,11 +48,15 @@ When started without a command line argument, starlnk will display (using the fi
 
 ![image](https://github.com/JGrana01/Starlnk/assets/11652784/0b539b16-c2e1-48e7-86ec-a4f42391700c)
 
-You can use the keyboard arrow keys or type the menu item directly
+You can use the keyboard arrow keys or type the menu item directly.
+
+The first selection, "Monitor Sat. Link Statistics" will show a screen with the present uplink/downlink speeds and latency. It will refresh every 4 seconds.
+Keep in mind, this is the Satellite to dish rates and NOT the actual download or upload speeds. For those, use somehting like spdMerlin.
 
 An example of one of the screens (Show Present Status)
 
 ![image](https://github.com/JGrana01/Starlnk/assets/11652784/37aa1c04-61ac-4649-8603-b40b36cbb2c7)
+
 ## Script Mode
 
 With an argument, starlnk will take a command line argument and return the requested results.
