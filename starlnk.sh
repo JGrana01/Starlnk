@@ -17,7 +17,7 @@ SCRIPTNAME="starlnk"
 
 SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
 SCRIPTLOC="/jffs/scripts/$SCRIPTNAME"
-SCRIPTVER="0.2.0"
+SCRIPTVER="0.2.1"
 CONFIG="$SCRIPTDIR/config.txt"
 STRLTMP="$SCRIPTDIR/stl.tmp"
 SLSTATETMP="$SCRIPTDIR/lstate.tmp"
@@ -592,7 +592,7 @@ while true; do
 	response=$?
 	case $response in
    	0)
-	   display_info "Stowing..." 4 20 5
+	   display_info "Stowing...(not really)" 4 30 5
 	   stowdish
 	   display_info "To unstow and put back into service, power cycle the system..." 4 80 5
 	   clear
@@ -613,7 +613,7 @@ while true; do
 	response=$?
 	case $response in
    	0)
-	   display_info "Rebooting..." 4 20 5
+	   display_info "Rebooting... (not really)" 4 30 5
 	   rebootstarlink
 	   display_info "See you in 3+ minutes, exiting" 4 35 2
 	   clear
