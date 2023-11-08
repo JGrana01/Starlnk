@@ -16,7 +16,7 @@
 SCRIPTNAME="starlnk"
 
 SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
-SCRIPTLOC="/jffs/scripts/$SCRIPTNAME"
+SCRIPTLOC="/jffs/scripts/$SCRIPTNAME.sh"
 SCRIPTVER="0.2.1"
 CONFIG="$SCRIPTDIR/config.txt"
 STRLTMP="$SCRIPTDIR/stl.tmp"
