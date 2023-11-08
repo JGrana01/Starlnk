@@ -21,9 +21,9 @@ Entware will also be required since starlnk uses dialog for the menu/GUI system 
 Using your preferred SSH client/terminal, copy and paste the following command, then press Enter:
 
 ```sh
-/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.sh" -o "/jffs/scripts/starlnk.sh" && chmod 0755 /jffs/scripts/starlnk && /jffs/scripts/starlnk install
+/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.sh" -o "/jffs/scripts/starlnk.sh" && chmod 0755 /jffs/scripts/starlnk.sh && /jffs/scripts/starlnk.sh install
 ```
-Install will firt check for the correct router architecture (aarch64 - needed for grpcurl) then Entware being installed. If either are a problem, starlnk will let you know and not install.
+Install will first check for the correct router architecture (aarch64 - needed for grpcurl) then Entware being installed. If either are a problem, starlnk will let you know and not install.
 
 If both are met, it will create a directory in /jffs/addons (starlnk), create a config file there and setup a link in /opt/bin (starlnk) to /jffs/scripts/starlnk.sh
 
@@ -96,6 +96,8 @@ install - setup the script directory, copy the program, link to /opt/bin (if its
                  there!) and setup a default config file
 
 uninstall - remove starlnk and its data/directories
+
+update - download the most recent version. Will check for existing installation.
 
 ## Important Notes
 
