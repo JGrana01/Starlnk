@@ -16,9 +16,8 @@
 SCRIPTNAME="starlnk"
 
 SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
-#SCRIPTDIR="/jffs/addons/starlnktest"
-SCRIPTVER="0.1.0"
-PWENC=-pbkdf2
+SCRIPTLOC="/jffs/scripts/$SCRIPTNAME"
+SCRIPTVER="0.2.0"
 CONFIG="$SCRIPTDIR/config.txt"
 STRLTMP="$SCRIPTDIR/stl.tmp"
 SLSTATETMP="$SCRIPTDIR/lstate.tmp"
@@ -90,15 +89,25 @@ write_starlnk_config() {
 	echo "# Starlink settings  #" > "${CONFIG}"
 	echo "USER="admin"" >> "${CONFIG}"
 	echo "STARLNKIP=192.168.100.1" >> "${CONFIG}"
-#	echo "PWENC="-pbkdf2"" >> "${SCRIPTDIR}/starlnk.conf"
-#	echo "# PASS is encoded in starlnkpw.enc" >> "$SCRIPTDIR/starlnk.conf"
 	if [ ! -x /opt/bin/opkg ]; then
 		echo "NOMENU=1" >> "${CONFIG}"
 	else
 		echo "NOMENU=0" >> "${CONFIG}"
 	fi
-# generate initial fake password
-#	echo -n "NotArealPassword" | /usr/sbin/openssl aes-256-cbc $PWENC -out "${SCRIPTDIR}/starlnkpw.enc" -pass pass:ditbabot,isoi
+
+}
+
+starlinkon() {
+
+if ! ping -q -c 1 -W 1 $STARLNKIP >/dev/null; then
+	cat << EOF
+Starlink does not appear to be online at $STARLNKIP.
+Please check your network and Starlink router.
+If the IP address is not $STARLNKIP (highly unusual) then edit $CONFIG
+and update the IP address.
+EOF
+exit 1
+fi
 
 }
 
@@ -141,7 +150,7 @@ getarg() {
 
 rebootstarlink() {
 
-	if [ "$INTESTMODE: = "0" ]; then
+	if [ "$INTESTMODE" = "0" ]; then
 		echo starlnkcmd reboot "$STRLTMP"
 	else
 		echo testmode
@@ -152,13 +161,22 @@ rebootstarlink() {
 
 stowdish() {
 
-	if [ "$INTESTMODE: = "0" ]; then
+	if [ "$INTESTMODE" = "0" ]; then
 		echo starlnkcmd dish_stow "$STRLTMP"
 	else
 		echo testmode
 	fi
 
 }
+
+unstowdish() {
+	if [ "$INTESTMODE" = "0" ]; then
+		echo grpcurl -plaintext -d {\"dish_stow\":{\"unstow\":true}} 192.168.100.1:9200 SpaceX.API.Device.Device/Handle
+	else
+		echo testmode
+	fi
+}
+
 
 
 
@@ -191,6 +209,28 @@ slobstruct() {
 	noping=$(grep NO_PINGS $SLHISTORY | wc -l)
 	obstruct=$(grep OBSTRUCTED $SLHISTORY | wc -l)
 }
+
+slmaxmin() {
+
+	starlnkcmd get_history "$SLHISTORY"
+
+	sed -n '/downlink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
+
+	maxdown=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
+	mindown=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
+
+	sed -n '/uplink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
+
+	maxup=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
+	minup=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
+
+	if [ "$1" = "p" ]; then
+		printf "Downlink Max: %sbps   Min: %sbps\\n" $maxdown $mindown
+		printf "Uplink   Max: %sbps   Min: %sbps\\n" $maxup $minup
+	fi
+
+}
+
 
 slgpsinfo() {
 
@@ -229,6 +269,9 @@ slfilestate() {
 	slgpsinfo
 	cat $STRLTMP >> $SLSTATETMP
 	printf "\\nSatalite Link Rates and Latency:\\n      %s\\n" "$dynamicstats" >> $SLSTATETMP
+	slmaxmin s
+	printf "History Logged Throughput\\n" >> $SLSTATETMP
+	printf "     Downlink Max: %sbps   Min: %sbps\\n     Uplink   Max: %sbps   Min: %sbps\\n" $maxdown $mindown $maxup $minup >> $SLSTATETMP
 	slobstruct
 	printf "Link Issues:\\n" >> $SLSTATETMP
 	printf "      Lost Downlink: %s   Failed Ping: %s   Obstructed: %s\\n" $nodown $noping $obstruct >> $SLSTATETMP
@@ -256,54 +299,38 @@ convertsecs() {
 }
 
 human_print_bps(){
-	intarg=$(echo $1 | awk '{print int($0)*8}')
-	intBps=$(expr $intarg \* 8)
-  	[ "$intBps" -lt 1024 ] && echo "$intarg bps" && return
-	KB=$(expr $intBps / 1024)
-	[ "$KB" -lt 1024 ] && echo "${KB} Kbps" && return
-	MB=$(expr $KB / 1024)
-	[ "$MB" -lt 1024 ] && echo "${MB} Mbps" && return
-	GB=$(expr $MB / 1024)
-	echo "${GB} Gbps"
+	echo "$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
 }
 
 
 human_set_bps(){
-	intarg=$(echo $1 | awk '{print int($0)*8}')
-	intBps=$(expr $intarg \* 8)
-  	[ "$intBps" -lt 1024 ] && spdis=$(printf "%s Bps" "$intBps")  && return
-	KB=$(expr $intBps / 1024)
-	[ "$KB" -lt 1024 ] && spdis=$(printf "$s Kbps" "$KB")  && return
-	MB=$(expr $KB / 1024)
-	[ "$MB" -lt 1024 ] && spdis=$(printf "%s Mbps" "$MB") && return
-	GB=$(expr $MB / 1024)
-	spdis=$(printf "%s Gbps" "$GB")
+	spdis="$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
 }
 
 
 gospeed() {
 	starlnkstatus
 	downlink=$(pullarg "$STRLTMP" "downlink")
-	human_set_bps  $downlink
+	human_set_bps $downlink 1
 	downspeed="$spdis"
 	uplink=$(pullarg "$STRLTMP" "uplink")
-	human_set_bps  $uplink
+	human_set_bps $uplink 1
 	upspeed="$spdis"
 	latency=$(pullarg "$STRLTMP" Latency)
+	printf "Down: %s  Up: %s\\n" $downlink $uplink >> /jffs/scripts/starlink/updown
 	if [ $1 = "0" ]; then
-		printf  "\\nDownlink: %s %s     Uplink: %s %s     Latency: %s mSec" $downspeed $upspeed $latency
+		printf  "\\nDownlink: %sbps     Uplink: %sbps     Latency: %.1f mSec" $downspeed $upspeed $latency
 	else
-		dynamicstats=$(printf "Downlink: %s %s    Uplink: %s %s    Latency: %s mSec" $downspeed $upspeed $latency)
-		
+		dynamicstats=$(printf "Downlink: %sbps    Uplink: %sbps    Latency: %.1f mSec" $downspeed $upspeed $latency)
 	fi
 }
 
 gospeedlog() {
 	on=$(date +"%m-%d %H:%M")
 	downlink=$(pullarg "$STRLTMP" "downlink")
-	downspeed=$(human_print_bps $downlink)
+	downspeed=$(human_print_bps $downlink 1)
 	uplink=$(pullarg "$STRLTMP" "uplink")
-	upspeed=$(human_print_bps $uplink)
+	upspeed=$(human_print_bps $uplink 1)
 	latency=$(pullarg "$STRLTMP" Latency)
 	printf "$downspeed/$upspeed  $latency $on\\n" >> $SPDLOG
 	printf "$on,$downlink,$uplink,$latency\\n" >> $SPDLOG.csv
@@ -362,6 +389,17 @@ installgrpcurl() {
 
 starlnkinstall() {
 
+	if [ -x "$SCRIPTLOC" ] && [ -f "$CONFIG" ]; then
+		printf "\\nIt looks like starlnk has already been installed\\n"
+		printf "Install again (Y/N)? "
+		read a
+		if [ "$a" = "n" ] || [ "$a" = "N" ]; then
+			exit
+		else
+			printf "\\nOk, running install again\\n"
+		fi
+	fi
+
 	if [ "$(uname -m)" != "aarch64" ]; then
 		printf "Sorry, $SCRIPTNAME requires an aarch64 type router...\\n"
 		exit 1
@@ -402,6 +440,10 @@ EOF
 		if [ ! -x /opt/bin/$app ]; then
 			echo "Installing $app to /opt/bin"
 			opkg install $app
+		fi
+		if [ ! -x /opt/bin/numfmt ]; then
+			echo "Installing numfmt to /opt/bin"
+			opkg install coreutils-numfmt
 		fi
 	done
 
@@ -452,12 +494,31 @@ starlnkuninstall() {
 	esac
 }
 
+starlnkupdate() {
+
+
+	if [ -x "$SCRIPTLOC" ] && [ -f "$CONFIG" ]; then
+		printf "\\nDownload and install the latest version of strlnk (Y/N)? "
+		read a
+		if [ "$a" = "n" ] || [ "$a" = "N" ]; then
+			exit
+		else
+			printf "\\nOk, downloading starlnk again\\n"
+			/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.sh" -o "/jffs/scripts/starlnk.sh" && chmod 0755 "/jffs/scripts/starlnk.sh"
+			printf "\\n\\nDone.\\n"
+		fi
+	else
+		printf "\\nNo $SCRIPTLOC or $CONFIG found"
+		printf "\\nPlease download and install manually"
+	fi
+}
 
 
 menu() {
 
 #set -x
 . "$CONFIG"
+starlinkon
 
 while true; do
   exec 3>&1
@@ -499,7 +560,7 @@ while true; do
       do
          showstats
 	 dialog --title "Starlink Dish Link Throughput" --no-collapse --infobox "$dynamicstats" 4 80
-         if read -r -t 5; then
+         if read -r -t 3; then
             clear
             menu
          fi
@@ -533,6 +594,7 @@ while true; do
    	0)
 	   display_info "Stowing..." 4 20 5
 	   stowdish
+	   display_info "To unstow and put back into service, power cycle the system..." 4 80 5
 	   clear
 	;;
    	1)
@@ -640,9 +702,13 @@ The list of script arguments are:
 menu	- Run starlnk in a menu driven mode using Linux dialog. This is the default
           mode when run without a command line argument
 
+rates - displays Downlink and Uplink throughputs continuously until a return is entered
+
 status - displays the state of both Starlink Dish and Router
 
 linkstate - displays detailed information on the sattelite link
+
+maxmin - shows maximum and minimum Downlink/Uplink Throughput rates from history log
 
 router - shows information about the Starlink router
 
@@ -701,37 +767,70 @@ fi
 . "${CONFIG}"
 
 case "$1" in
+	rates)
+		starlinkon
+		echo
+      		while true
+      			do
+         		showstats
+	 		printf "\\r%s " "$dynamicstats"
+         	if read -r -t 2; then
+            		echo
+			exit 0
+         	fi
+       		done
+		;;
 	status)
+		starlinkon
 		gospeed 0
 		sleep 5
 		exit 0
 		;;
 	linkstate)
+		starlinkon
 		slfilestate
 		cat $SLSTATETMP
 		exit 0
 		;;
 	router)
+		starlinkon
 		showdevinfo
 		exit 0
 		;;
 	gps)
+		starlinkon
 		slgpsinfo
 		cat $STRLTMP
 		exit 0
 		;;
+
+	maxmin)
+		starlinkon
+		printf "History Throughput\\n"
+		slmaxmin p
+		exit 0
+		;;
 	stow) 
+		starlinkon
 		stowdish
 		logger -t "starlnk.sh" "Stowed Dish"
          	exit 0
 		;;
+	unstow) 
+		starlinkon
+		unstowdish
+		logger -t "starlnk.sh" "Stowed Dish"
+         	exit 0
+		;;
 	all)
+		starlinkon
 		logger -t "starlnk.sh" "Getting all starlnk Gateway status"
 		showall
 		cat $STRLTMP
         	exit 0
 		;;
 	reboot)
+		starlinkon
 		reboot
 		logger -t "starlnk.sh" "Rebooted starlnk"
 		if [ $LOGREBOOTS = 1 ]; then
@@ -754,6 +853,10 @@ case "$1" in
 		;;
 	uninstall)
 		starlnkuninstall
+		exit 0
+		;;
+	update)
+		starlnkupdate
 		exit 0
 		;;
 	*)
