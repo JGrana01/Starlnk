@@ -37,9 +37,9 @@ starlnk runs either a menu based system using dialog without any command line
 arguments or in script mode where it will return results of a command or do an
 action on the command.
 
-To run strlnk after installation, use:
+To run starlnk after installation, use:
 ```sh
-strlnk
+starlnk
 ```
 
 If this does not work, you will need to use the full path:
@@ -48,11 +48,11 @@ If this does not work, you will need to use the full path:
 ```
 To run in menu mode, just type:
 ```sh
-strlnk
+starlnk
 ```
 In script mode, enter an argument. To see available arguments, type help:
 ```sh
-strlnk help
+starlnk help
 ```
 
 ## Menu/GUI Mode
