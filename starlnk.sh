@@ -17,7 +17,7 @@ SCRIPTNAME="starlnk"
 
 SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
 SCRIPTLOC="/jffs/scripts/$SCRIPTNAME.sh"
-SCRIPTVER="0.2.1"
+SCRIPTVER="0.2.2"
 CONFIG="$SCRIPTDIR/config.txt"
 STRLTMP="$SCRIPTDIR/stl.tmp"
 SLSTATETMP="$SCRIPTDIR/lstate.tmp"
@@ -48,12 +48,6 @@ DIALOG_QUIT="Q"
 HEIGHT=16
 WIDTH=0
 
-display_result() {
-  dialog --title "$1" \
-    --no-collapse \
-    --colors \
-    --msgbox "$result" 8 20
-}
 
 display_file() {
  dialog --title "$1" \
@@ -64,7 +58,7 @@ display_file() {
 
 display_info() {
   dialog --infobox "$1" "$2" "$3"
-  sleep $4
+  sleep "$4"
 }
 
 showorking() {
@@ -99,7 +93,7 @@ write_starlnk_config() {
 
 starlinkon() {
 
-if ! ping -q -c 1 -W 1 $STARLNKIP >/dev/null; then
+if ! ping -q -c 1 -W 1 "$STARLNKIP" >/dev/null; then
 	cat << EOF
 Starlink does not appear to be online at $STARLNKIP.
 Please check your network and Starlink router.
@@ -113,7 +107,7 @@ fi
 
 starlnkcmd() {
 grpcurl -plaintext -d {\"$1\":{}} $STARLNKIP:9200 SpaceX.API.Device.Device/Handle | \
-sed /{/d | sed /}/d | sed 's/,//' | sed 's/"//g' | awk 'BEGIN { FS = ":" }; { print $1 $2 }' > $2
+sed /{/d | sed /}/d | sed 's/,//' | sed 's/"//g' | awk 'BEGIN { FS = ":" }; { print $1 $2 }' > "$2"
 }
 
 starlnkstatus() {
@@ -140,7 +134,7 @@ showdevinfo() {
 
 pullarg() {
 
-	cat $1 | sed /{/d | sed /}/d | sed 's/,//' | sed 's/"//g' | awk 'BEGIN { FS = ":" }; { print $1 $2 }' | grep $2 | awk '{ print $2 }'
+	cat "$1" | sed /{/d | sed /}/d | sed 's/,//' | sed 's/"//g' | awk 'BEGIN { FS = ":" }; { print $1 $2 }' | grep "$2" | awk '{ print $2 }'
 }
 
 getarg() {
@@ -205,9 +199,9 @@ Dish Link Throughput: $dynamicstats\\n" 10 120
 slobstruct() {
 	
 	starlnkcmd get_history "$SLHISTORY"
-	nodown=$(grep NO_DOWNLINK $SLHISTORY | wc -l)
-	noping=$(grep NO_PINGS $SLHISTORY | wc -l)
-	obstruct=$(grep OBSTRUCTED $SLHISTORY | wc -l)
+	nodown=$(grep -c NO_DOWNLINK $SLHISTORY)
+	noping=$(grep -c NO_PINGS $SLHISTORY)
+	obstruct=$(grep -c OBSTRUCTED $SLHISTORY)
 }
 
 slmaxmin() {
@@ -216,17 +210,17 @@ slmaxmin() {
 
 	sed -n '/downlink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
 
-	maxdown=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
-	mindown=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
+	maxdown=$(human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1)
+	mindown=$(human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1)
 
 	sed -n '/uplink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
 
-	maxup=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
-	minup=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
+	maxup=$(human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1)
+	minup=$(human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1)
 
 	if [ "$1" = "p" ]; then
-		printf "Downlink Max: %sbps   Min: %sbps\\n" $maxdown $mindown
-		printf "Uplink   Max: %sbps   Min: %sbps\\n" $maxup $minup
+		printf "Downlink Max: %sbps   Min: %sbps\\n" "$maxdown" "$mindown"
+		printf "Uplink   Max: %sbps   Min: %sbps\\n" "$maxup" "$minup"
 	fi
 
 }
@@ -245,9 +239,9 @@ slgpsinfo() {
 
 		starlnkcmd get_location "$STRLTMP"
 
-		latitude=`getarg lat`
-		longitude=`getarg lon`
-		altitude=`getarg alt`
+		latitude=$(getarg lat)
+		longitude=$(getarg lon)
+		altitude=$(getarg alt)
 
 		printf "\\nGPS is aquired, data valid\\n" > $STRLTMP
 		printf "Number of GPS sats acquired: %s\\n" $numsats >> $STRLTMP
@@ -281,16 +275,16 @@ slfilestate() {
 }
 
 convertsecs() {
-    d=$(expr $1 / 86400)
+    d=$(($1 / 86400))
     if [ $d -gt 0 ]; then
-        daysec=$(expr $d \* 86400)
-        secs=$(expr $1 - $daysec)
+        daysec=$(( $d \* 86400))
+        secs=$(( $1 - $daysec))
     else
         secs=$1
     fi
-    h=$(expr $secs / 3600)
-    m=$(expr $secs % 3600 / 60)
-    s=$(expr $secs % 60)
+    h=$(($secs / 3600))
+    m=$(( $secs % 3600 / 60))
+    s=$(( $secs % 60))
     if [ $2 = "0" ]; then
         printf "\\n%3d days %2d:%02d:%02d" $d $h $m $s
     else
@@ -299,12 +293,13 @@ convertsecs() {
 }
 
 human_print_bps(){
-	echo "$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
+	printf "%f" "$1" | numfmt --to=iec --format '%.1f'
+#	$(printf "%f" "$1" | numfmt --to=iec --format '%.1f')
 }
 
 
 human_set_bps(){
-	spdis="$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
+	spdis="$(printf "%f" "$1" | numfmt --to=iec --format '%.1f')"
 }
 
 
