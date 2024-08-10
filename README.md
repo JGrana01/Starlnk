@@ -5,17 +5,11 @@ starlnk is a utility that is used to monitor and do some management of a Starlin
 
 It can display information about the Satellite Dish and router and also can be used to stow or reboot Starlink.
 
-## Prerequsites
+## Prerequsite
 
-starlnk can only run on Asuswrt-Merlin aarch64 based routers and aarch64 Raspberry Pi's. It will check during install.
 Starlnk assumes you are running the Starlink router in bypass mode (no WiFi) and using it as a WAN modem for a router.
 
-This addon requires an additional program called grpcurl which will be downloaded from the grpcurl project page on github
-(https://github.com/fullstorydev/grpcurl/releases/download/).
-A request has been made to the Entware team to include grpcurl in the Entware repository.
-starlnk will download grpcurl and install it in /opt/sbin (Asuswrt-Merlin or /usr/local/sbin (Raspberry Pi)
-
-For Asuswrt-Merlin, Entware will also be required since starlnk uses dialog for the menu/GUI system and numfmt for formatting various speeds.
+Entware will also be required since starlnk uses dialog for the menu/GUI system and numfmt, jq and grpcurl.
 
 ## Installation
 Using your preferred SSH client/terminal, copy and paste the following command, then press Enter:
@@ -24,13 +18,10 @@ For Asuswrt-Merlin:
 ```sh
 /usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk" -o "/jffs/scripts/starlnk" && chmod 0755 /jffs/scripts/starlnk && /jffs/scripts/starlnk install
 ```
-For Raspberry Pi:
-```sh
-/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk" -o "$HOME/starlnk.sh" && chmod 0755 /jffs/scripts/starlnk && $HOME/starlnk install
-```
-Install will first check for the correct processor architecture (aarch64 - needed for grpcurl) then Entware being installed if running Asuswrt-Merlin. If either are a problem, starlnk will let you know and not install.
+Install will first check Entware being installed. If not installed, starlnk will point you to amtm for Entware installation and exit.
 
-If both are met, it will create a directory in /jffs/addons or $HOME/.config, create a config file there and setup a symbolic ink in /opt/bin (Asuswrt-Merlin) or /usr/local/sbin (Raspberry Pi) to starlnk.
+If Entware is installed, it will create a directory in /jffs/addons or $HOME/.config, create a config file there and setup a symbolic ink in /opt/bin. It will also check for dialog, jq, numfmt and grpcurl and install them if missing.
+
 ## Uninstallation
 To remove starlnk and it's addon directory as well as grpcurl, run either in Menu mode, "U" uninstall or from the command line:
 
