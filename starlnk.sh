@@ -11,13 +11,12 @@
 # but also supports a non-interactive mode
 #
 
-# location where configutration data is read from the Sagemcom and stored
 
 SCRIPTNAME="starlnk"
 
 SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
 SCRIPTLOC="/jffs/scripts/$SCRIPTNAME.sh"
-SCRIPTVER="0.2.2"
+SCRIPTVER="0.4.1"
 CONFIG="$SCRIPTDIR/config.txt"
 STRLTMP="$SCRIPTDIR/stl.tmp"
 SLSTATETMP="$SCRIPTDIR/lstate.tmp"
@@ -26,9 +25,6 @@ SPDLOG=/jffs/logs/starlnklog
 
 INTESTMODE=1
 DEBUG=0
-
-GRPCURLAPP="https://github.com/fullstorydev/grpcurl/releases/download/v1.8.9/grpcurl_1.8.9_linux_arm64.tar.gz"
-GRPZIP="$SCRIPTDIR/grpcurl.zip"
 
 
 
@@ -199,9 +195,9 @@ Dish Link Throughput: $dynamicstats\\n" 10 120
 slobstruct() {
 	
 	starlnkcmd get_history "$SLHISTORY"
-	nodown=$(grep -c NO_DOWNLINK $SLHISTORY)
-	noping=$(grep -c NO_PINGS $SLHISTORY)
-	obstruct=$(grep -c OBSTRUCTED $SLHISTORY)
+	nodown=$(grep NO_DOWNLINK $SLHISTORY | wc -l)
+	noping=$(grep NO_PINGS $SLHISTORY | wc -l)
+	obstruct=$(grep OBSTRUCTED $SLHISTORY | wc -l)
 }
 
 slmaxmin() {
@@ -210,17 +206,17 @@ slmaxmin() {
 
 	sed -n '/downlink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
 
-	maxdown=$(human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1)
-	mindown=$(human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1)
+	maxdown=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
+	mindown=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
 
 	sed -n '/uplink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
 
-	maxup=$(human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1)
-	minup=$(human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1)
+	maxup=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
+	minup=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
 
 	if [ "$1" = "p" ]; then
-		printf "Downlink Max: %sbps   Min: %sbps\\n" "$maxdown" "$mindown"
-		printf "Uplink   Max: %sbps   Min: %sbps\\n" "$maxup" "$minup"
+		printf "Downlink Max: %sbps   Min: %sbps\\n" $maxdown $mindown
+		printf "Uplink   Max: %sbps   Min: %sbps\\n" $maxup $minup
 	fi
 
 }
@@ -239,9 +235,9 @@ slgpsinfo() {
 
 		starlnkcmd get_location "$STRLTMP"
 
-		latitude=$(getarg lat)
-		longitude=$(getarg lon)
-		altitude=$(getarg alt)
+		latitude=`getarg lat`
+		longitude=`getarg lon`
+		altitude=`getarg alt`
 
 		printf "\\nGPS is aquired, data valid\\n" > $STRLTMP
 		printf "Number of GPS sats acquired: %s\\n" $numsats >> $STRLTMP
@@ -275,16 +271,16 @@ slfilestate() {
 }
 
 convertsecs() {
-    d=$(($1 / 86400))
+    d=$(expr $1 / 86400)
     if [ $d -gt 0 ]; then
-        daysec=$(( $d \* 86400))
-        secs=$(( $1 - $daysec))
+        daysec=$(expr $d \* 86400)
+        secs=$(expr $1 - $daysec)
     else
         secs=$1
     fi
-    h=$(($secs / 3600))
-    m=$(( $secs % 3600 / 60))
-    s=$(( $secs % 60))
+    h=$(expr $secs / 3600)
+    m=$(expr $secs % 3600 / 60)
+    s=$(expr $secs % 60)
     if [ $2 = "0" ]; then
         printf "\\n%3d days %2d:%02d:%02d" $d $h $m $s
     else
@@ -293,13 +289,12 @@ convertsecs() {
 }
 
 human_print_bps(){
-	printf "%f" "$1" | numfmt --to=iec --format '%.1f'
-#	$(printf "%f" "$1" | numfmt --to=iec --format '%.1f')
+	echo "$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
 }
 
 
 human_set_bps(){
-	spdis="$(printf "%f" "$1" | numfmt --to=iec --format '%.1f')"
+	spdis="$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
 }
 
 
@@ -369,19 +364,6 @@ starlnkstate() {
 	fi
 }
 
-installgrpcurl() {
-
-	/usr/sbin/curl -fL --retry 3 "$GRPCURLAPP" -o "$GRPZIP"
-	if [ ! -z "$GRPZIP" ]; then
-		/bin/tar xzf "$GRPZIP" -C "$SCRIPTDIR"
-		cp "$SCRIPTDIR/grpcurl" /opt/sbin
-		rm "$SCRIPTDIR/grpcurl" "$GRPZIP"
-	else
-		echo "Error downloading grpcurl..."
-	fi
-	
-}
-
 starlnkinstall() {
 
 	if [ -x "$SCRIPTLOC" ] && [ -f "$CONFIG" ]; then
@@ -395,27 +377,19 @@ starlnkinstall() {
 		fi
 	fi
 
-	if [ "$(uname -m)" != "aarch64" ]; then
-		printf "Sorry, $SCRIPTNAME requires an aarch64 type router...\\n"
-		exit 1
-	fi
-
 	cat << EOF
 
 	This will install the Starlink addon - starlnk
 
-	This addon requires an additional program called grpcurl which will be downloaded from
-	the grpcurl project page on github.
-	A request has been made to the Entware team to include grpcurl in the Entware repository.
-	starlnk requires grpcurl to retrieve information from the Starlink system.
-
-	If you do not want this installed, (starlnk will be removed as well)
+	This addon requires some additional programs which will be downloaded from
+	the Entware repository
+	These additional programs are nfmt, dialog, jq and grpcurl.
+	If you do not want them installed, (starlnk will be removed as well)
 	Press [N]
 EOF
 	read a
 
 	if [ "$a" = "N" ] || [ "$a" = "n" ]; then
-		echo "No problem, hopefully Entware supports it soon!"
 		echo "Removing starlnk.sh"
 		rm -f ./starlnk.sh
 		exit 1
@@ -431,25 +405,19 @@ EOF
 	mkdir -p "${SCRIPTDIR}"
 	echo "Checking for and installing required apps"
 	opkg update
-	for app in dialog jq ; do
-		if [ ! -x /opt/bin/$app ]; then
-			echo "Installing $app to /opt/bin"
+	for app in dialog jq grpcurl ; do
+		if [ $(which $app | wc -c) -eq 0 ]; then
+			echo "Installing $app"
 			opkg install $app
 		fi
-		if [ ! -x /opt/bin/numfmt ]; then
-			echo "Installing numfmt to /opt/bin"
-			opkg install coreutils-numfmt
-		fi
 	done
-
-	echo "Installing grpcurl to /opt/sbin"
-	installgrpcurl
-	if [ ! -x /opt/sbin/grpcurl ]; then
-		echo "There was a problem installing grpcurl..."
-		echo 
-		exit 1
+	if [ ! -x /opt/bin/numfmt ]; then
+		echo "Installing numfmt"
+		opkg install coreutils-numfmt
 	fi
+
 	init_starlnk
+
 	cat <<EOF
 
 	     starlnk.sh     Version $SCRIPTVER
@@ -694,32 +662,21 @@ cat <<EOF
 
 The list of script arguments are:
 
-menu	- Run starlnk in a menu driven mode using Linux dialog. This is the default
-          mode when run without a command line argument
-
-rates - displays Downlink and Uplink throughputs continuously until a return is entered
-
-status - displays the state of both Starlink Dish and Router
-
+menu	  - Run starlnk in a menu driven mode using Linux dialog. This is
+	    the default mode when run without a command line argument
+rates     - displays Downlink and Uplink throughputs continuously
+            until a return is entered
+status    - displays the state of both Starlink Dish and Router
 linkstate - displays detailed information on the sattelite link
-
-maxmin - shows maximum and minimum Downlink/Uplink Throughput rates from history log
-
-router - shows information about the Starlink router
-
-all - displays all information on the system
-
-gps - show gps information
-
-reboot - will issue a reboot command to Starlink
-
-stow - will issue a stow command to Starkink
-
-help - show this help info
-	
-install - setup the script directory, copy the program, link to /opt/bin (if its
+maxmin    - shows maximum and minimum Downlink/Uplink Throughput rates from history log
+router    - shows information about the Starlink router
+all       - displays all information on the system
+gps       - show gps information
+reboot    - will issue a reboot command to Starlink
+stow      - will issue a stow command to Starkink
+help      - show this help info
+install   - setup the script directory, copy the program, link to /opt/bin (if its
 	         there!) and setup a default config file
-
 uninstall - remove starlnk and its data/directories
 EOF
 }
@@ -775,10 +732,16 @@ case "$1" in
          	fi
        		done
 		;;
+	rate)
+		starlinkon
+		showstats 0
+		echo
+		exit 0
+		;;
 	status)
 		starlinkon
 		gospeed 0
-		sleep 5
+		echo
 		exit 0
 		;;
 	linkstate)
