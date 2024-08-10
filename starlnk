@@ -439,9 +439,6 @@ removestarlnk() {
 	if [ -d /opt/bin ]; then
 		rm -f /opt/bin/starlnk
 	fi
-	if [ -x /opt/sbin/grpcurl ]; then
-		rm -f /opt/sbin/grpcurl
-	fi
 	rm -f /jffs/scripts/starlnk
 }
 
