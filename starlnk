@@ -7,76 +7,24 @@
 # You can check status, run a speedtest, reboot and stow the dish
 # And examine some of the existing dish configuration
 #
-# this version (starlnk) uses dialog for a more graphical UI
+# this version (starlnk.sh) uses dialog for a more graphical UI
 # but also supports a non-interactive mode
 #
 
-# location where configutration data is read from the dish
-
-
-# define based on OS
-setOS() {
-
-	OSis=$(uname -o)
-
-	case $OSis in
-		ASUSWRT-Merlin)
-			OS="merlin"
-			;;
-		"GNU/Linux")
-			if [ "$(uname -m)" = "aarch64" ]; then
-				OS="linux"
-			else
-				printf "Your OS reports 32bit %s, you need to install starlnk on a 64bit (aarch64) Raspberry Pi\\n" $OSis
-				exit
-			fi
-			;;
-		*)
-			printf "Your OS reports %s, you need to install starlnk on either an Asuswrt-Merlin based router or Raspberry Pi\\n" $OSis
-			printf "Bailing...\\n\\n"
-			exit 1
-			esac
-}
-
-
-# global variables 
-
 
 SCRIPTNAME="starlnk"
-SCRIPTVER="0.1.2"
 
-setOS
-
-if [ "$OS" = "merlin" ] ; then
-	SCRIPTLOC="/jffs/scripts"
-	SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
-	SCRIPTCONF="$SCRIPTDIR/$SCRIPTNAME.conf"
-	CONFIG="$SCRIPTDIR/config.txt"
-	STRLTMP="$SCRIPTDIR/stl.tmp"
-	SLSTATETMP="$SCRIPTDIR/lstate.tmp"
-	SLHISTORY="$SCRIPTDIR/slhistory.log"
-	SPDLOG=/jffs/logs/starlnklog
-	CURLAP="/usr/sbin/curl"
-	OSBIN="/opt/sbin"
-else
-	SCRIPTLOC="/usr/local/sbin/"
-	SCRIPTDIR="/$HOME/.config/$SCRIPTNAME"
-	SCRIPTCONF="$SCRIPTDIR/$SCRIPTNAME.conf"
-	CONFIG="$SCRIPTDIR/config.txt"
-	STRLTMP="$SCRIPTDIR/stl.tmp"
-	SLSTATETMP="$SCRIPTDIR/lstate.tmp"
-	SLHISTORY="$SCRIPTDIR/slhistory.log"
-	SPDLOG=$SCRIPTDIR/starlnklog
-	CURLAP="/usr/bin/curl"
-	OSBIN="/usr/local/sbin"
-fi
-
+SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
+SCRIPTLOC="/jffs/scripts/$SCRIPTNAME.sh"
+SCRIPTVER="0.4.1"
+CONFIG="$SCRIPTDIR/config.txt"
+STRLTMP="$SCRIPTDIR/stl.tmp"
+SLSTATETMP="$SCRIPTDIR/lstate.tmp"
+SLHISTORY="$SCRIPTDIR/slhistory.log"
+SPDLOG=/jffs/logs/starlnklog
 
 INTESTMODE=1
 DEBUG=0
-
-GRPCURLAPP="https://github.com/fullstorydev/grpcurl/releases/download/v1.8.9/grpcurl_1.8.9_linux_arm64.tar.gz"
-GRPZIP="$SCRIPTDIR/grpcurl.zip"
 
 
 
@@ -118,76 +66,26 @@ showorking() {
 # setup links and any stored configuration
 #
 
-
-# install scrpipt - sets up directories, conf file, etc.
-# OS supported are Asuswrt-Merlin and Raspbian (and possible other GNU/Linux
-
-doinstall() {
-	echo "Creating script directory $SCRIPTDIR"
-        mkdir -p "$SCRIPTDIR"
-
-	if [ "$OS" = "merlin" ]; then
-		echo "Installing $SCRIPTNAME in $OSBIN"
-        	if [ -d "$OSBIN" ] && [ ! -L "$OSBIN/$SCRIPTNAME" ]; then
-                	ln -s "$SCRIPTLOC/$SCRIPTNAME" "$OSBIN/$SCRIPTNAME"
-               		chmod 0755 "$OSBIN/$SCRIPTNAME"
-        	fi
-	else
-		echo "Installing $SCRIPTNAME in $SCRIPTLOC"
-		if [ ! -f "$HOME/$SCRIPTNAME" ]; then
-			sudo cp "./$SCRIPTNAME" "$SCRIPTLOC/$SCRIPTNAME"
-		else
-			sudo cp "$HOME/$SCRIPTNAME" "$SCRIPTLOC/$SCRIPTNAME"
-		fi
-        	sudo chmod 0755 "$SCRIPTLOC/$SCRIPTNAME"
-        	if [ -d "$OSBIN" ] && [ ! -L "$OSBIN/$SCRIPTNAME" ]; then
-                	ln -s "$SCRIPTLOC/$SCRIPTNAME" "$OSBIN/$SCRIPTNAME"
-               		chmod 0755 "$OSBIN/$SCRIPTNAME"
-        	fi
+init_starlnk() {
+	if [ -d "/opt/bin" ] && [ ! -L "/opt/bin/starlnk" ]; then
+		ln -s "/jffs/scripts/starlnk.sh" /opt/bin/starlnk
+		chmod 0755 "/opt/bin/starlnk"
 	fi
+	write_starlnk_config
+}
 
-	echo "Creating conf file"
-
+write_starlnk_config() {
+	mkdir -p "${SCRIPTDIR}"
 	echo "# Starlink settings  #" > "${CONFIG}"
 	echo "USER="admin"" >> "${CONFIG}"
 	echo "STARLNKIP=192.168.100.1" >> "${CONFIG}"
-	if [ "$OS" = "merlin" ] && [ ! ; then
-		if [ ! -x /opt/bin/opkg ]; then
-			echo "NOMENU=1" >> "${CONFIG}"
-		else
-			echo "NOMENU=0" >> "${CONFIG}"
-		fi
+	if [ ! -x /opt/bin/opkg ]; then
+		echo "NOMENU=1" >> "${CONFIG}"
+	else
+		echo "NOMENU=0" >> "${CONFIG}"
 	fi
+
 }
-
-# uninstall script - remove all the stuff we installed (except dependent apps like nmap)
-
-douninstall() {
-		   rm -rf "$SCRIPTDIR"
-		   if [ "$OS" = "merlin" ]; then
-                   	rm -f $SCRIPTLOC/$SCRIPTNAME
-                   	if [ -L $OSBIN/$SCRIPTNAME ]; then
-                   		rm -f $OSBIN/$SCRIPTNAME ]
-		   	fi
-		   else
-                   	sudo rm -f "$HOME/$SCRIPTNAME"
-                   	if [ -L $OSBIN/$SCRIPTNAME ]; then
-                   		sudo rm -f $OSBIN/$SCRIPTNAME ]
-		   	fi
-		   fi
-
-		   printf "\\nstarlnk uninstalled\\n"
-}
-
-# workaround for Ubuntu/Linux dash shell
-# doesn't support timed read commands...
-
-if [ "$OS" = "linux" ]; then
-        SHL="/usr/bin/bash"
-else
-        SHL="/bin/sh"
-fi
-
 
 starlinkon() {
 
@@ -277,7 +175,7 @@ monitorall() {
       do
          showstats
 	 dialog --title "Starlink Dish Link Throughput" --no-collapse --infobox "$dynamicstats" 4 90
-         if $($SHL -c "read -r -t 5"); then
+         if read -r -t 5; then
             clear
             menu
          fi
@@ -297,9 +195,9 @@ Dish Link Throughput: $dynamicstats\\n" 10 120
 slobstruct() {
 	
 	starlnkcmd get_history "$SLHISTORY"
-	nodown=$(grep -c NO_DOWNLINK $SLHISTORY)
-	noping=$(grep -c NO_PINGS $SLHISTORY)
-	obstruct=$(grep -c OBSTRUCTED $SLHISTORY)
+	nodown=$(grep NO_DOWNLINK $SLHISTORY | wc -l)
+	noping=$(grep NO_PINGS $SLHISTORY | wc -l)
+	obstruct=$(grep OBSTRUCTED $SLHISTORY | wc -l)
 }
 
 slmaxmin() {
@@ -308,17 +206,17 @@ slmaxmin() {
 
 	sed -n '/downlink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
 
-	maxdown=$(human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1)
-	mindown=$(human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1)
+	maxdown=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
+	mindown=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
 
 	sed -n '/uplink/,/]/p' "$SLHISTORY" > /tmp/spd.tmp
 
-	maxup=$(human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1)
-	minup=$(human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1)
+	maxup=`human_print_bps $(sort -g /tmp/spd.tmp | tail -1) 1`
+	minup=`human_print_bps $(sed -n '3p' /tmp/spd.tmp) 1`
 
 	if [ "$1" = "p" ]; then
-		printf "Downlink Max: %sbps   Min: %sbps\\n" "$maxdown" "$mindown"
-		printf "Uplink   Max: %sbps   Min: %sbps\\n" "$maxup" "$minup"
+		printf "Downlink Max: %sbps   Min: %sbps\\n" $maxdown $mindown
+		printf "Uplink   Max: %sbps   Min: %sbps\\n" $maxup $minup
 	fi
 
 }
@@ -337,9 +235,9 @@ slgpsinfo() {
 
 		starlnkcmd get_location "$STRLTMP"
 
-		latitude=$(getarg lat)
-		longitude=$(getarg lon)
-		altitude=$(getarg alt)
+		latitude=`getarg lat`
+		longitude=`getarg lon`
+		altitude=`getarg alt`
 
 		printf "\\nGPS is aquired, data valid\\n" > $STRLTMP
 		printf "Number of GPS sats acquired: %s\\n" $numsats >> $STRLTMP
@@ -373,16 +271,16 @@ slfilestate() {
 }
 
 convertsecs() {
-    d=$(($1 / 86400))
+    d=$(expr $1 / 86400)
     if [ $d -gt 0 ]; then
-        daysec=$(( $d * 86400))
-        secs=$(( $1 - $daysec))
+        daysec=$(expr $d \* 86400)
+        secs=$(expr $1 - $daysec)
     else
         secs=$1
     fi
-    h=$(($secs / 3600))
-    m=$(( $secs % 3600 / 60))
-    s=$(( $secs % 60))
+    h=$(expr $secs / 3600)
+    m=$(expr $secs % 3600 / 60)
+    s=$(expr $secs % 60)
     if [ $2 = "0" ]; then
         printf "\\n%3d days %2d:%02d:%02d" $d $h $m $s
     else
@@ -391,49 +289,14 @@ convertsecs() {
 }
 
 human_print_bps(){
-	printf "%f" "$1" | numfmt --to=iec --format '%.1f'
-#	$(printf "%f" "$1" | numfmt --to=iec --format '%.1f')
+	echo "$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
 }
 
 
 human_set_bps(){
-	spdis="$(printf "%f" "$1" | numfmt --to=iec --format '%.1f')"
+	spdis="$(printf "%f" $1 | numfmt --to=iec --format '%.1f')"
 }
 
-
-
-showspdmerlin() {
-
-	if [ "$OS" = "merlin" ] && [ -f /jffs/scripts/spdmerlin ]; then
-
-		if [ -d /opt/share/spdmerlin.d ]; then
-			spdmerlincsv="/opt/share/spdmerlin.d/lastx_WAN.csv"
-		else
-			spdmerlincsv="/jffs/addons/spdmerlin.d/lastx_WAN.csv"
-		fi
-
-		latestspds=$(head -n 1 $spdmerlincsv)
-
-		wandnl=$(echo $latestspds | awk -F',' '{print $2}' | numfmt --to=iec --format '%.1f' )
-		wanul=$(echo $latestspds | awk -F',' '{print $3}' | numfmt --to=iec --format '%.1f' )
-		wanlat=$(echo $latestspds | awk -F',' '{print $4}')
-		wanepoch=$(echo $latestspds | awk -F',' '{print $1}')
-
-		wandt="$(date --date='@1705440206' +'%x %R')"
-
-		spdstats=$(printf "\\nWAN Speed (@%s):\\n                 Down: %s Mbps    Up: %s Mbps     Latency: %.1f mSec" "$wandt" $wandnl $wanul $wanlat)
-		showmerspeed="Y"
-
-		if [ $1 = "0" ]; then
-			printf "%s\\n" "$spdstats"
-		else
-			printf "%s\\n" "$spdstats" > /tmp/sped
-		fi
-	else
-		showmerspeed="N"
-
-	fi
-}
 
 gospeed() {
 	starlnkstatus
@@ -444,16 +307,11 @@ gospeed() {
 	human_set_bps $uplink 1
 	upspeed="$spdis"
 	latency=$(pullarg "$STRLTMP" Latency)
-	satdt="$(date +'%x %R')"
-	printf "Down: %s  Up: %s\\n" $downlink $uplink >> $SCRIPTDIR/updown
+	printf "Down: %s  Up: %s\\n" $downlink $uplink >> /jffs/scripts/starlink/updown
 	if [ $1 = "0" ]; then
-		printf "Sat. Link speed (@%s):\\n" "$satdt"
-		printf  "           Down: %sbps     Up: %sbps     Latency: %.1f mSec\\n" $downspeed $upspeed $latency
-		showspdmerlin 0
+		printf  "\\nDownlink: %sbps     Uplink: %sbps     Latency: %.1f mSec" $downspeed $upspeed $latency
 	else
-		printf "Sat. Link speed (@%s):\\n" "$satdt" > /tmp/stsp
-		printf "              Down: %sbps    Up: %sbps    Latency: %.1f mSec" $downspeed $upspeed $latency >> /tmp/stsp
-		showspdmerlin 1
+		dynamicstats=$(printf "Downlink: %sbps    Uplink: %sbps    Latency: %.1f mSec" $downspeed $upspeed $latency)
 	fi
 }
 
@@ -506,23 +364,6 @@ starlnkstate() {
 	fi
 }
 
-installgrpcurl() {
-
-	$CURLAP -fL --retry 3 "$GRPCURLAPP" -o "$GRPZIP"
-	if [ ! -z "$GRPZIP" ]; then
-		tar xzf "$GRPZIP" -C "$SCRIPTDIR"
-		if [ "$OS" = "merlin" ]; then
-			cp "$SCRIPTDIR/grpcurl" "$OSBIN"
-		else
-			sudo cp "$SCRIPTDIR/grpcurl" "$OSBIN"
-		fi
-		rm "$SCRIPTDIR/grpcurl" "$GRPZIP"
-	else
-		echo "Error downloading grpcurl..."
-	fi
-	
-}
-
 starlnkinstall() {
 
 	if [ -x "$SCRIPTLOC" ] && [ -f "$CONFIG" ]; then
@@ -536,90 +377,56 @@ starlnkinstall() {
 		fi
 	fi
 
-	if [ "$(uname -m)" != "aarch64" ]; then
-		printf "Sorry, $SCRIPTNAME requires an aarch64 type OS...\\n"
-		exit 1
-	fi
-
 	cat << EOF
 
 	This will install the Starlink addon - starlnk
 
-	This addon requires an additional program called grpcurl which will be downloaded from
-	the grpcurl project page on github.
-	A request has been made to the Entware team to include grpcurl in the Entware repository.
-	starlnk requires grpcurl to retrieve information from the Starlink system.
-
-	If you do not want this installed, (starlnk will be removed as well)
+	This addon requires some additional programs which will be downloaded from
+	the Entware repository
+	These additional programs are nfmt, dialog, jq and grpcurl.
+	If you do not want them installed, (starlnk will be removed as well)
 	Press [N]
 EOF
 	read a
 
 	if [ "$a" = "N" ] || [ "$a" = "n" ]; then
-		echo "No problem, hopefully the OS app installer supports it soon!"
-		echo "Removing starlnk"
-		rm -f ./starlnk
+		echo "Removing starlnk.sh"
+		rm -f ./starlnk.sh
 		exit 1
 	fi
 	
 	
-	if [ "$OS" = "merlin" ]; then
-		if [ ! -x /opt/bin/opkg ]; then
-			printf "\\nstarlnk requires Entware to be installed\\n"
-			printf "\\nInstall Entware using amtm and run starlnk install again.\\n\\n"
-			exit 1
-		fi
+	if [ ! -x /opt/bin/opkg ]; then
+		printf "\\nstarlnk requires Entware to be installed\\n"
+		printf "\\nInstall Entware using amtm and run starlnk.sh install again.\\n\\n"
+		exit 1
 	fi
-
-	doinstall
-
+	echo "Creating script directory ${SCRIPTDIR}"
+	mkdir -p "${SCRIPTDIR}"
 	echo "Checking for and installing required apps"
-	repoup=0
-	for app in dialog jq ; do
-
-		if [ "$OS" = "merlin" ]; then
-			if [ ! -x /opt/bin/$app ]; then
-				if [ $repoup -eq 0 ]; then
-					opkg update
-					repoup=1
-				fi
-				echo "Installing $app to /opt/bin"
-				opkg install $app
-			fi
-			if [ ! -x /opt/bin/numfmt ]; then
-				echo "Installing numfmt to /opt/bin"
-				opkg install coreutils-numfmt
-			fi
-		else
-			if [ ! $(which $app) ]; then
-				if [ $repoup -eq 0 ]; then
-					sudo apt-get update
-					repoup=1
-				fi
-				printf "Installing $app\\n"
-				sudo apt-get -y install $app
-			fi
+	opkg update
+	for app in dialog jq grpcurl ; do
+		if [ $(which $app | wc -c) -eq 0 ]; then
+			echo "Installing $app"
+			opkg install $app
 		fi
 	done
-
-	echo "Installing grpcurl to $OSBIN"
-	installgrpcurl
-	if [ ! -x $OSBIN/grpcurl ]; then
-		echo "There was a problem installing grpcurl..."
-		echo 
-		exit 1
+	if [ ! -x /opt/bin/numfmt ]; then
+		echo "Installing numfmt"
+		opkg install coreutils-numfmt
 	fi
+
+	init_starlnk
+
 	cat <<EOF
 
+	     starlnk.sh     Version $SCRIPTVER
+	starlnk.sh has been copied to $SCRIPTDIR and a link set in /opt/bin as starlnk
 
-	     starlnk     Version $SCRIPTVER
-
-	starlnk has been copied to $SCRIPTDIR and a link set in $OSBIN as starlnk
-
-	You can run it from $SCRIPTDIR/starlnk or $OSBIN/starlnk. If $OSBIN is in
+	You can run it from /jffs/scripts/starlnk.sh or /opt/bin/starlnk. If /opt/bin is in
 	your PATH, you can simply run starlnk.
 
-	starlnk can be run via a menu system based on dialog. Just run starlnk without any command
+	starlnk.sh can be run via a menu system based on dialog. Just run starlnk.sh without any command
 	command line arguements.
 
 	It can also run in a non-menu mode by passing an argument to starlnk.
@@ -628,68 +435,47 @@ EOF
 }
 
 removestarlnk() {
-	printf "\\n Uninstall starlnk and it's data/directories? [Y=Yes] ";read -r continue
+	rm -rf "${SCRIPTDIR}"
+	if [ -d /opt/bin ]; then
+		rm -f /opt/bin/starlnk
+	fi
+	if [ -x /opt/sbin/grpcurl ]; then
+		rm -f /opt/sbin/grpcurl
+	fi
+	rm -f /jffs/scripts/starlnk.sh
+}
+
+starlnkuninstall() {
+	printf "\\n Uninstall starlnk and it's data/directory? [Y=Yes] ";read -r continue
 	case "$continue" in
 		Y|y) printf "\\n Uninstalling...\\n"
-		     douninstall
+	           removestarlnk
 		   printf "\\nstarlnk uninstalled\\n"
-		   ;;
+		;;
 		*) printf "\\nstarlnk NOT uninstalled\\n"
 		;;
 	esac
 }
 
-
-starlnkuninstall() {
-	douninstall
-}
-
 starlnkupdate() {
-	if [ -x "$SCRIPTLOC/$SCRIPTNAME" ] && [ -f "$SCRIPTCONF" ]; then
 
-		rm -f "$SCRIPTDIR/starlnk.version"
 
-		$CURLAP --retry 3 --silent "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.version" -o "$SCRIPTDIR/starlnk.version"
-		
-		if [ -z "$SCRIPTDIR/starlnk.version" ]; then
-			echo "starlnk: Could not retrieve version number from github. Exiting."
-			exit
-		fi
-
-		oldwas=$(grep -m 1 "SCRIPTVER=" "$SCRIPTLOC/$SCRIPTNAME" | sed 's/SCRIPTVER\=//g' )
-		newis=$(grep -m 1 "SCRIPTVER=" "$SCRIPTDIR/starlnk.version" | sed 's/SCRIPTVER\=//g')
-
-		if [ "$oldwas" = "$newis" ]; then
-			echo "starlnk is up to date"
-			exit
-		fi
-
-		printf "New version ($newis) of starlnk found.\\n"
-
-		printf "\\nDownload and install the latest version of starlnk (Y/N)? "
+	if [ -x "$SCRIPTLOC" ] && [ -f "$CONFIG" ]; then
+		printf "\\nDownload and install the latest version of strlnk (Y/N)? "
 		read a
 		if [ "$a" = "n" ] || [ "$a" = "N" ]; then
 			exit
 		else
-			printf "\\nOk, downloading starlnk\\n"
-			$CURLAP --retry 3 --silent "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk" -o "/tmp/starlnk" && chmod 0755 /tmp/starlnk
-			if [ "$OS" = "merlin" ]; then
-				cp /tmp/starlnk $SCRIPTLOC/$SCRIPTNAME
-			else
-				sudo cp /tmp/starlnk $SCRIPTLOC/$SCRIPTNAME
-			fi
-			rm /tmp/starlnk
+			printf "\\nOk, downloading starlnk again\\n"
+			/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.sh" -o "/jffs/scripts/starlnk.sh" && chmod 0755 "/jffs/scripts/starlnk.sh"
 			printf "\\n\\nDone.\\n"
-			printf "Old version was %s, new version us %s\\n" $oldwas $newis
-			
 		fi
-
 	else
-		printf "\\nNo $SCRIPTLOC/$SCRIPTNAME or $SCRIPTCONF found"
-		printf "\\nDownload and install manually"
+		printf "\\nNo $SCRIPTLOC or $CONFIG found"
+		printf "\\nPlease download and install manually"
 	fi
-
 }
+
 
 menu() {
 
@@ -715,7 +501,7 @@ while true; do
   "5" "Show all Starlink information" \
   "R" "Reboot Starlink System" \
   "S" "Stow Starlink Dish" \
-  "U" "Uninstall starlnk" \
+  "U" "Uninstall starlnk.sh" \
     2>&1 1>&3)
   exit_status=$?
   exec 3>&-
@@ -736,18 +522,12 @@ while true; do
       while true
       do
          showstats
-	 if [ "$showmerspeed" = "Y" ]; then
-	 	cat /tmp/sped >> /tmp/stsp
-		hite=6
-	 else
-		hite=4
-	 fi
-	 slinfo=$(cat /tmp/stsp)
-	 dialog --title "Starlink Dish Link Throughput" --no-collapse --infobox "$slinfo" $hite 80
-         if $($SHL -c "read -r -t 3"); then
+	 dialog --title "Starlink Dish Link Throughput" --no-collapse --infobox "$dynamicstats" 4 80
+         if read -r -t 3; then
             clear
             menu
          fi
+#	clear
        done
       ;;
     2)
@@ -823,7 +603,7 @@ while true; do
 	case $response in
    	0)
 	   display_info "Uninstalling..." 4 20 3
-	   douninstall
+	   removestarlnk
 	   display_info "starlnk uninstalled, exiting" 4 35 2
 	   clear
 	   exit
@@ -882,32 +662,21 @@ cat <<EOF
 
 The list of script arguments are:
 
-menu	- Run starlnk in a menu driven mode using Linux dialog. This is the default
-          mode when run without a command line argument
-
-rates - displays Downlink and Uplink throughputs continuously until a return is entered
-
-status - displays the state of both Starlink Dish and Router
-
+menu	  - Run starlnk in a menu driven mode using Linux dialog. This is
+	    the default mode when run without a command line argument
+rates     - displays Downlink and Uplink throughputs continuously
+            until a return is entered
+status    - displays the state of both Starlink Dish and Router
 linkstate - displays detailed information on the sattelite link
-
-maxmin - shows maximum and minimum Downlink/Uplink Throughput rates from history log
-
-router - shows information about the Starlink router
-
-all - displays all information on the system
-
-gps - show gps information
-
-reboot - will issue a reboot command to Starlink
-
-stow - will issue a stow command to Starkink
-
-help - show this help info
-	
-install - setup the script directory, copy the program, link to /opt/bin (if its
+maxmin    - shows maximum and minimum Downlink/Uplink Throughput rates from history log
+router    - shows information about the Starlink router
+all       - displays all information on the system
+gps       - show gps information
+reboot    - will issue a reboot command to Starlink
+stow      - will issue a stow command to Starkink
+help      - show this help info
+install   - setup the script directory, copy the program, link to /opt/bin (if its
 	         there!) and setup a default config file
-
 uninstall - remove starlnk and its data/directories
 EOF
 }
@@ -943,7 +712,7 @@ fi
 if [ ! -f "${CONFIG}" ]; then
 	printf "\\nSorry, no $CONFIG\\n"
 	printf "Try to run the install program again:\\n"
-	printf "   starlnk install\\n"
+	printf "   starlnk.sh install\\n"
 	exit 1
 fi
 
@@ -956,28 +725,24 @@ case "$1" in
       		while true
       			do
          		showstats
-			showspdmerlin 1
-			cat /tmp/stsp
-			if [ "$showmerspeed" = "Y" ]; then
-				cat /tmp/sped
-	 			printf "\\e[6A"
-			else
-				 printf "\\e[5A"
-			fi
-         	if $($SHL -c "read -r -t 2"); then
+	 		printf "\\r%s " "$dynamicstats"
+         	if read -r -t 2; then
             		echo
 			exit 0
          	fi
        		done
+		;;
+	rate)
+		starlinkon
+		showstats 0
+		echo
+		exit 0
 		;;
 	status)
 		starlinkon
 		gospeed 0
 		echo
 		exit 0
-		;;
-	merlin)
-		showspdmerlin 0
 		;;
 	linkstate)
 		starlinkon
@@ -1006,18 +771,18 @@ case "$1" in
 	stow) 
 		starlinkon
 		stowdish
-		logger -t "starlnk" "Stowed Dish"
+		logger -t "starlnk.sh" "Stowed Dish"
          	exit 0
 		;;
 	unstow) 
 		starlinkon
 		unstowdish
-		logger -t "starlnk" "Stowed Dish"
+		logger -t "starlnk.sh" "Stowed Dish"
          	exit 0
 		;;
 	all)
 		starlinkon
-		logger -t "starlnk" "Getting all starlnk Gateway status"
+		logger -t "starlnk.sh" "Getting all starlnk Gateway status"
 		showall
 		cat $STRLTMP
         	exit 0
@@ -1025,10 +790,10 @@ case "$1" in
 	reboot)
 		starlinkon
 		reboot
-		logger -t "starlnk" "Rebooted starlnk"
+		logger -t "starlnk.sh" "Rebooted starlnk"
 		if [ $LOGREBOOTS = 1 ]; then
 			awk -F, '{$2=$2+1}1' OFS=, $REBOOTLOGFILE > /tmp/rbc && mv /tmp/rbc $REBOOTLOGFILE
-			logger -t "starlnk" "Logged Reboot Count"
+			logger -t "starlnk.sh" "Logged Reboot Count"
 		fi
 		exit 0
 		;;
