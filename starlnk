@@ -7,7 +7,7 @@
 # You can check status, run a speedtest, reboot and stow the dish
 # And examine some of the existing dish configuration
 #
-# this version (starlnk.sh) uses dialog for a more graphical UI
+# starlnk uses dialog for a more graphical UI
 # but also supports a non-interactive mode
 #
 
@@ -15,8 +15,8 @@
 SCRIPTNAME="starlnk"
 
 SCRIPTDIR="/jffs/addons/$SCRIPTNAME"
-SCRIPTLOC="/jffs/scripts/$SCRIPTNAME.sh"
-SCRIPTVER="0.4.1"
+SCRIPTLOC="/jffs/scripts/$SCRIPTNAME"
+SCRIPTVER="0.4.2"
 CONFIG="$SCRIPTDIR/config.txt"
 STRLTMP="$SCRIPTDIR/stl.tmp"
 SLSTATETMP="$SCRIPTDIR/lstate.tmp"
@@ -68,7 +68,7 @@ showorking() {
 
 init_starlnk() {
 	if [ -d "/opt/bin" ] && [ ! -L "/opt/bin/starlnk" ]; then
-		ln -s "/jffs/scripts/starlnk.sh" /opt/bin/starlnk
+		ln -s "/jffs/scripts/starlnk" /opt/bin/starlnk
 		chmod 0755 "/opt/bin/starlnk"
 	fi
 	write_starlnk_config
@@ -390,15 +390,15 @@ EOF
 	read a
 
 	if [ "$a" = "N" ] || [ "$a" = "n" ]; then
-		echo "Removing starlnk.sh"
-		rm -f ./starlnk.sh
+		echo "Removing starlnk"
+		rm -f ./starlnk
 		exit 1
 	fi
 	
 	
 	if [ ! -x /opt/bin/opkg ]; then
 		printf "\\nstarlnk requires Entware to be installed\\n"
-		printf "\\nInstall Entware using amtm and run starlnk.sh install again.\\n\\n"
+		printf "\\nInstall Entware using amtm and run starlnk install again.\\n\\n"
 		exit 1
 	fi
 	echo "Creating script directory ${SCRIPTDIR}"
@@ -420,13 +420,13 @@ EOF
 
 	cat <<EOF
 
-	     starlnk.sh     Version $SCRIPTVER
-	starlnk.sh has been copied to $SCRIPTDIR and a link set in /opt/bin as starlnk
+	     starlnk     Version $SCRIPTVER
+	starlnk has been copied to $SCRIPTDIR and a link set in /opt/bin as starlnk
 
-	You can run it from /jffs/scripts/starlnk.sh or /opt/bin/starlnk. If /opt/bin is in
+	You can run it from /jffs/scripts/starlnk or /opt/bin/starlnk. If /opt/bin is in
 	your PATH, you can simply run starlnk.
 
-	starlnk.sh can be run via a menu system based on dialog. Just run starlnk.sh without any command
+	starlnk can be run via a menu system based on dialog. Just run starlnk without any command
 	command line arguements.
 
 	It can also run in a non-menu mode by passing an argument to starlnk.
@@ -442,7 +442,7 @@ removestarlnk() {
 	if [ -x /opt/sbin/grpcurl ]; then
 		rm -f /opt/sbin/grpcurl
 	fi
-	rm -f /jffs/scripts/starlnk.sh
+	rm -f /jffs/scripts/starlnk
 }
 
 starlnkuninstall() {
@@ -461,13 +461,13 @@ starlnkupdate() {
 
 
 	if [ -x "$SCRIPTLOC" ] && [ -f "$CONFIG" ]; then
-		printf "\\nDownload and install the latest version of strlnk (Y/N)? "
+		printf "\\nDownload and install the latest version of starlnk (Y/N)? "
 		read a
 		if [ "$a" = "n" ] || [ "$a" = "N" ]; then
 			exit
 		else
 			printf "\\nOk, downloading starlnk again\\n"
-			/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk.sh" -o "/jffs/scripts/starlnk.sh" && chmod 0755 "/jffs/scripts/starlnk.sh"
+			/usr/sbin/curl --retry 3 "https://raw.githubusercontent.com/JGrana01/starlnk/master/starlnk" -o "/jffs/scripts/starlnk" && chmod 0755 "/jffs/scripts/starlnk"
 			printf "\\n\\nDone.\\n"
 		fi
 	else
@@ -501,7 +501,7 @@ while true; do
   "5" "Show all Starlink information" \
   "R" "Reboot Starlink System" \
   "S" "Stow Starlink Dish" \
-  "U" "Uninstall starlnk.sh" \
+  "U" "Uninstall starlnk" \
     2>&1 1>&3)
   exit_status=$?
   exec 3>&-
@@ -712,7 +712,7 @@ fi
 if [ ! -f "${CONFIG}" ]; then
 	printf "\\nSorry, no $CONFIG\\n"
 	printf "Try to run the install program again:\\n"
-	printf "   starlnk.sh install\\n"
+	printf "   starlnk install\\n"
 	exit 1
 fi
 
@@ -771,18 +771,18 @@ case "$1" in
 	stow) 
 		starlinkon
 		stowdish
-		logger -t "starlnk.sh" "Stowed Dish"
+		logger -t "starlnk" "Stowed Dish"
          	exit 0
 		;;
 	unstow) 
 		starlinkon
 		unstowdish
-		logger -t "starlnk.sh" "Stowed Dish"
+		logger -t "starlnk" "Stowed Dish"
          	exit 0
 		;;
 	all)
 		starlinkon
-		logger -t "starlnk.sh" "Getting all starlnk Gateway status"
+		logger -t "starlnk" "Getting all starlnk Gateway status"
 		showall
 		cat $STRLTMP
         	exit 0
@@ -790,10 +790,10 @@ case "$1" in
 	reboot)
 		starlinkon
 		reboot
-		logger -t "starlnk.sh" "Rebooted starlnk"
+		logger -t "starlnk" "Rebooted starlnk"
 		if [ $LOGREBOOTS = 1 ]; then
 			awk -F, '{$2=$2+1}1' OFS=, $REBOOTLOGFILE > /tmp/rbc && mv /tmp/rbc $REBOOTLOGFILE
-			logger -t "starlnk.sh" "Logged Reboot Count"
+			logger -t "starlnk" "Logged Reboot Count"
 		fi
 		exit 0
 		;;
