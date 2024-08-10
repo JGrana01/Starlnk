@@ -401,6 +401,40 @@ human_set_bps(){
 }
 
 
+
+showspdmerlin() {
+
+	if [ "$OS" = "merlin" ] && [ -f /jffs/scripts/spdmerlin ]; then
+
+		if [ -d /opt/share/spdmerlin.d ]; then
+			spdmerlincsv="/opt/share/spdmerlin.d/lastx_WAN.csv"
+		else
+			spdmerlincsv="/jffs/addons/spdmerlin.d/lastx_WAN.csv"
+		fi
+
+		latestspds=$(head -n 1 $spdmerlincsv)
+
+		wandnl=$(echo $latestspds | awk -F',' '{print $2}' | numfmt --to=iec --format '%.1f' )
+		wanul=$(echo $latestspds | awk -F',' '{print $3}' | numfmt --to=iec --format '%.1f' )
+		wanlat=$(echo $latestspds | awk -F',' '{print $4}')
+		wanepoch=$(echo $latestspds | awk -F',' '{print $1}')
+
+		wandt="$(date --date='@1705440206' +'%x %R')"
+
+		spdstats=$(printf "\\nWAN Speed (@%s):\\n                 Down: %s Mbps    Up: %s Mbps     Latency: %.1f mSec" "$wandt" $wandnl $wanul $wanlat)
+		showmerspeed="Y"
+
+		if [ $1 = "0" ]; then
+			printf "%s\\n" "$spdstats"
+		else
+			printf "%s\\n" "$spdstats" > /tmp/sped
+		fi
+	else
+		showmerspeed="N"
+
+	fi
+}
+
 gospeed() {
 	starlnkstatus
 	downlink=$(pullarg "$STRLTMP" "downlink")
@@ -410,11 +444,16 @@ gospeed() {
 	human_set_bps $uplink 1
 	upspeed="$spdis"
 	latency=$(pullarg "$STRLTMP" Latency)
+	satdt="$(date +'%x %R')"
 	printf "Down: %s  Up: %s\\n" $downlink $uplink >> $SCRIPTDIR/updown
 	if [ $1 = "0" ]; then
-		printf  "\\nDownlink: %sbps     Uplink: %sbps     Latency: %.1f mSec" $downspeed $upspeed $latency
+		printf "Sat. Link speed (@%s):\\n" "$satdt"
+		printf  "           Down: %sbps     Up: %sbps     Latency: %.1f mSec\\n" $downspeed $upspeed $latency
+		showspdmerlin 0
 	else
-		dynamicstats=$(printf "Downlink: %sbps    Uplink: %sbps    Latency: %.1f mSec" $downspeed $upspeed $latency)
+		printf "Sat. Link speed (@%s):\\n" "$satdt" > /tmp/stsp
+		printf "              Down: %sbps    Up: %sbps    Latency: %.1f mSec" $downspeed $upspeed $latency >> /tmp/stsp
+		showspdmerlin 1
 	fi
 }
 
@@ -697,12 +736,18 @@ while true; do
       while true
       do
          showstats
-	 dialog --title "Starlink Dish Link Throughput" --no-collapse --infobox "$dynamicstats" 4 80
+	 if [ "$showmerspeed" = "Y" ]; then
+	 	cat /tmp/sped >> /tmp/stsp
+		hite=6
+	 else
+		hite=4
+	 fi
+	 slinfo=$(cat /tmp/stsp)
+	 dialog --title "Starlink Dish Link Throughput" --no-collapse --infobox "$slinfo" $hite 80
          if $($SHL -c "read -r -t 3"); then
             clear
             menu
          fi
-#	clear
        done
       ;;
     2)
@@ -911,7 +956,14 @@ case "$1" in
       		while true
       			do
          		showstats
-	 		printf "\\r%s " "$dynamicstats"
+			showspdmerlin 1
+			cat /tmp/stsp
+			if [ "$showmerspeed" = "Y" ]; then
+				cat /tmp/sped
+	 			printf "\\e[6A"
+			else
+				 printf "\\e[5A"
+			fi
          	if $($SHL -c "read -r -t 2"); then
             		echo
 			exit 0
@@ -921,8 +973,11 @@ case "$1" in
 	status)
 		starlinkon
 		gospeed 0
-		sleep 5
+		echo
 		exit 0
+		;;
+	merlin)
+		showspdmerlin 0
 		;;
 	linkstate)
 		starlinkon
